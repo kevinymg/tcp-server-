@@ -1,0 +1,7 @@
+#! /bin/sh
+#
+# Created by configure
+
+"./configure" \
+"--prefix=/home/ymg/apr-1.5.1" \
+"$@"
