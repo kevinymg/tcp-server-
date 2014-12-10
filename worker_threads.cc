@@ -9,10 +9,17 @@
 #include "global_settings.h"
 #include "utils.h"
 #include "socket_wrapper.h"
+#include "connection_pool.h"
+
+//ConnPool *connpool = ConnPool::GetInstance();
+ConnPool *connpool = NULL;
 
 int CWorkerThread::init_count_ = 0;
 pthread_mutex_t	CWorkerThread::init_lock_ = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t  CWorkerThread::init_cond_ = PTHREAD_COND_INITIALIZER;
+
+pthread_mutex_t	CWorkerThread::m_lock = PTHREAD_MUTEX_INITIALIZER;
+int CWorkerThread::m_recordoftable = 5;
 
 int CWorkerThread::freetotal_ = 0;
 int CWorkerThread::freecurr_  = 0;
@@ -33,6 +40,7 @@ CWorkerThread::~CWorkerThread()
 bool CWorkerThread::InitThreads(struct event_base* main_base)
 {
 
+	connpool = ConnPool::GetInstance();
 	InitFreeConns();
 
 	LOG4CXX_INFO(g_logger, "Initializes worker threads...");
@@ -212,6 +220,8 @@ void CWorkerThread::ClientTcpReadCb(struct bufferevent *bev, void *arg)
 {
 	CONN* conn = static_cast<CONN*>(arg);
 	assert(conn != NULL);
+	char buffer[512] = {0};
+	char name[20] = {0};
 
 	int recv_size = 0;
 	if ((recv_size = bufferevent_read(bev, conn->rBuf + conn->rlen, DATA_BUFFER_SIZE - conn->rlen)) > 0)
@@ -233,6 +243,43 @@ void CWorkerThread::ClientTcpReadCb(struct bufferevent *bev, void *arg)
 				memmove(conn->rBuf, conn->rBuf + TOKEN_LENGTH, conn->rlen);
 			}
 		}
+		// data process for test;
+		//ConnPool *connpool = ConnPool::GetInstance();
+		int tmp =0;
+		buffer[0]='\0';
+		name[0]='\0';
+		pthread_mutex_lock(&m_lock);
+		++m_recordoftable;
+		tmp=m_recordoftable;
+		pthread_mutex_unlock(&m_lock);
+		Connection *con;
+    		Statement *state;
+    		//ResultSet *result;
+
+    		con = connpool->GetConnection();
+
+    		state = con->createStatement();
+    		state->execute("use holy");
+		printf("tmp value is %d\n",tmp);
+
+		if (tmp%2 == 0)
+			strcpy(name,"ymgkevin");
+		else 
+			strcpy(name, "wls");
+		sprintf(buffer,"insert into student(number,sname) values('%d','%s')",tmp,name);
+    		//result = state->executeQuery(buffer);
+    		state->executeUpdate(buffer);
+/*
+    		while (result->next()) {
+        		int id = result->getInt("number");
+        		string name = result->getString("sname");
+        	cout << id << " : " << name << endl;
+    		}*/
+    		delete state;
+    		connpool->ReleaseConnection(con);
+		
+		
+
 	}
 	if (recv_size <= 0)
 		return ;

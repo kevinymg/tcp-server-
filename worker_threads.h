@@ -94,6 +94,8 @@ private:
 	static std::vector<CONN*> vec_freeconn_;
 	static int freetotal_;
 	static int freecurr_;
+        static pthread_mutex_t m_lock;
+	static int m_recordoftable;
 
 };
 
